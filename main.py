@@ -50,7 +50,21 @@ def return_warning(data, warning_message):
     return return_option(data, "WARNING")
 
 def return_success(data, assistant_response):
+    # Imprimir respuesta inicial
+    logger.info("---------------")
+    logger.info(assistant_response)
+    logger.info("---------------")
+
+    # Buscar y guardar texto entre 【 y 】 como nueva variable
+    brackets_search = re.search('【(.*?)】', assistant_response)
+    brackets_content = None
+    if brackets_search:
+        brackets_content = brackets_search.group(1)  # Extraigo solo el contenido
+        setin_context(data, "hiddenContext", "brackets_content", brackets_content)
+        assistant_response = re.sub('【(.*?)】', '', assistant_response)
+
     setin_context(data, "hiddenContext", "assistant_response", assistant_response)
+    
     return return_option(data, "SUCCESS")
 
 def return_function_call(data, function_name):
@@ -64,6 +78,8 @@ def return_option(data, option):
         "hiddenContext": data['hiddenContext'],
         "option": option
     }
+    logger.info("response:")
+    logger.info(response)
     return response
 
 app = Flask(__name__)
@@ -78,7 +94,7 @@ httpx_logger = logging.getLogger("httpx")
 httpx_logger.setLevel(logging.WARNING)
 
 @app.route("/", methods=["POST"])
-def gpt():
+def function(self):
 
     data = request.json
 
@@ -88,7 +104,9 @@ def gpt():
         if assistant_id is None:
             return return_warning(data, "hiddenContext.assistant_id not found")
         
-        api_key = os.getenv('OPENAI_API_KEY')
+        api_key = getfrom_context(data, "hiddenContext", "api_key")
+        if api_key is None:
+            return return_warning(data, "hiddenContext.api_key not found")
         client = OpenAI(api_key=api_key)
         
         if (not bool(getfrom_context(data, "hiddenContext", "is_assistant_valid")) or False):
@@ -205,3 +223,4 @@ if __name__ == "__main__":
     port = int(os.getenv('PORT', 8080))
     logger.info(f"Starting Flask app on port {port}")
     app.run(host='0.0.0.0', port=port)
+    
